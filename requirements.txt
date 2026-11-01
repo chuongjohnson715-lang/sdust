@@ -1,0 +1,28 @@
+# 依赖清单（只记录已验证可用的版本；离线环境请照此核对，不要盲目 pip install）
+#
+# 解释器：建议单独建一个 venv，装齐下列包后作为 COURSE_REVIEW_PYTHON 使用。
+
+# ---- 语音识别 ----
+funasr==1.4.16
+# CPU 版：pip install torch==2.14.1 --index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1
+soundfile==0.14.0
+librosa==1.0.0
+
+# ---- 课件 OCR / 图像 ----
+easyocr==1.7.2
+opencv-python-headless==5.0.0.93
+numpy==2.5.4
+Pillow==12.3.0
+
+# ---- 浏览器取证（Range 取字节、绕 TLS 指纹拦截）----
+playwright==1.62.0
+
+# ---- 外部二进制（不入 pip，需自行安装并加入 PATH 或用环境变量指定）----
+#   ffmpeg / ffprobe   8.x essentials
+#   环境变量：COURSE_REVIEW_FFMPEG / COURSE_REVIEW_FFPROBE
+
+# ---- 本地模型（离线，需提前下载到本机）----
+#   SenseVoiceSmall   默认查找 ~/.cache/modelscope/iic/SenseVoiceSmall
+#                     可用 COURSE_REVIEW_SENSEVOICE 指向实际目录
+#   EasyOCR 中文模型  首次运行自动下载到 ~/.EasyOCR/

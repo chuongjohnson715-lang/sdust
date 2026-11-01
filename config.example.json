@@ -1,0 +1,12 @@
+{
+  "note": "复制本文件为 .secrets/config.json 再填真实值；.secrets/ 已在 .gitignore 中，不会入库",
+  "username": "<你的登录账号>",
+  "password": "<你的密码>",
+  "platform": {
+    "lms_base": "https://lms.example.edu:8085",
+    "portal_url": "https://portal.example.edu/application-center",
+    "cas_login": "https://cas.example.edu/cas/login"
+  },
+  "target_course_keyword": "<课程名关键字，用于自动匹配目标课程>",
+  "python_exe": "<可选：跑管线的解释器绝对路径，缺省用当前解释器>"
+}

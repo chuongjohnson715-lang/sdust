@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{课程名}} · 考试重点</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{--bg:#f7f8fa;--panel:#fff;--line:#e5e7eb;--text:#1f2937;--text2:#6b7280;--blue:#2563eb}
+  html,body{height:100%}
+  body{font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+       background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;overflow:hidden}
+  header{height:54px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;align-items:center;gap:10px;padding:0 16px;position:relative;z-index:5}
+  header h1{font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  header .sub{font-size:12px;color:var(--text2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media (max-width:1200px){ header .sub{display:none} }
+  @media (max-width:900px){ .legend{display:none} }
+  .grow{flex:1}
+  button{font:inherit;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);
+         background:#fff;border-radius:6px;cursor:pointer;color:var(--text);white-space:nowrap}
+  button:hover{background:#f3f4f6}
+  button.on{background:#1f2937;color:#fff;border-color:#1f2937}
+  input[type=search]{font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--line);
+         border-radius:6px;width:158px;outline:none}
+  input[type=search]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--text2)}
+  .legend span{display:flex;align-items:center;gap:4px;white-space:nowrap}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+  main{display:flex;height:calc(100% - 54px)}
+  #stage{flex:1;position:relative;overflow:hidden;cursor:grab}
+  #stage.dragging{cursor:grabbing}
+  #stage .tip{position:absolute;left:12px;bottom:10px;font-size:12px;color:var(--text2);
+    background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:6px;
+    padding:4px 10px;pointer-events:none}
+  svg{display:block;width:100%;height:100%}
+  .node-rect{stroke-width:1.2;transition:filter .12s}
+  .node-g{cursor:pointer}
+  .node-g:hover .node-rect{filter:drop-shadow(0 2px 6px rgba(0,0,0,.14))}
+  .node-text{font-size:12.5px;fill:#1f2937;pointer-events:none;user-select:none}
+  .node-text.root{fill:#fff;font-weight:600}
+  .node-text.chap{font-weight:600}
+  .node-meta{font-size:9.5px;fill:#9ca3af;pointer-events:none;user-select:none}
+  .link{fill:none;stroke:#cbd5e1;stroke-width:1.4}
+  .hit .node-rect{stroke:#f59e0b;stroke-width:2.5}
+  .dim{opacity:.2}
+  #detail{width:344px;border-left:1px solid var(--line);background:var(--panel);
+          padding:16px;overflow-y:auto;flex-shrink:0}
+  #detail h2{font-size:15px;margin-bottom:8px;line-height:1.45}
+  #detail .tag{display:inline-block;font-size:11px;padding:1px 7px;border-radius:4px;margin:0 6px 8px 0}
+  #detail .tag.必考{background:#fef2f2;color:#b91c1c}
+  #detail .tag.不考{background:#f3f4f6;color:#4b5563}
+  #detail .tag.其余{background:#eff6ff;color:#2563eb}
+  #detail .lesson{background:#ecfdf5;color:#047857}
+  #detail .full{font-size:13.5px;margin:6px 0 8px}
+  #detail .why{font-size:12.5px;color:var(--text2);margin-top:6px}
+  #detail .ev{font-size:12px;color:var(--text2);margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+  #detail .hint{font-size:12.5px;color:var(--text2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>{{课程名}}</h1>
+  <span class="sub">{{讲次数}} 讲 · {{章数}} 章 · 判定三色</span>
+  <div class="grow"></div>
+  <div class="legend">
+    <span><i class="dot" style="background:#fecaca"></i>必考</span>
+    <span><i class="dot" style="background:#e5e7eb"></i>不考</span>
+    <span><i class="dot" style="background:#bfdbfe"></i>其余</span>
+  </div>
+  <input type="search" id="q" placeholder="搜索考点 / 原话 / 证据…">
+  <button id="only">只看必考</button>
+  <button id="expand">全部展开</button>
+  <button id="reset">复位</button>
+</header>
+<main>
+  <div id="stage"><svg id="svg"><g id="vp"></g></svg>
+    <div class="tip">点节点展开/折叠 · 滚轮缩放 · 拖动平移 · 右侧看原话与依据</div></div>
+  <aside id="detail">
+    <h2>怎么用</h2>
+    <p class="hint">两根各自独立：上面一支<b>「考试怎么考」</b>只放第 1 讲 / 倒数第 2 讲 / 最后一讲的考试口径（题型、范围、形式，没讲死的照实写「待确认」）；下面一支<b>「按教材章序」</b>只放有明确判定的考点。</p>
+    <p class="hint" style="margin-top:10px">颜色只有三种：<b>红＝老师说要考</b>、<b>灰＝老师说不考</b>、<b>蓝＝其余</b>。细档「必记 / 重点 / 了解」写在右侧详情里，不再占颜色。</p>
+    <p class="hint" style="margin-top:10px">每个节点下面那行灰字是课时与日期。课程级完整口径见 <code>期末考试重点与考情分析.docx</code>，知识结构见 <code>全课程思维导图.html</code>。</p>
+  </aside>
+</main>
+<script>
+const NODES = [
+ {
+  "id": "root",
+  "p": null,
+  "t": "{{课程名}}\n考试重点",
+  "lvl": "其余",
+  "les": "{{讲次数}} 讲 · {{章数}} 章",
+  "pts": [
+   "按教材章序排，只收有明确判定的考点",
+   "待确认的条目不进这里，只在「考试怎么考」一支里出现"
+  ],
+  "ev": "期末考试重点与考情分析.docx"
+ },
+ {
+  "id": "exam",
+  "p": null,
+  "t": "考试怎么考",
+  "lvl": "其余",
+  "les": "第 1 讲 / 倒数第 2 讲 / 最后一讲",
+  "pts": [
+   "题型 / 分值 / 时间 / 范围 / 形式，逐条带老师原话",
+   "没讲死的照实标「待确认」，不猜"
+  ],
+  "ev": "期末考试重点与考情分析.docx 第一节"
+ },
+ {
+  "id": "C01",
+  "p": "root",
+  "t": "第1章 <章名>",
+  "lvl": "其余",
+  "les": "第 01–03 讲"
+ },
+ {
+  "id": "K01",
+  "p": "C01",
+  "t": "<考点：老师原话里的短句>",
+  "lvl": "必考",
+  "raw": "必考",
+  "les": "第 02 讲（MM-DD）",
+  "pts": [
+   "<一句话说明这个考点要求什么>"
+  ],
+  "why": "<为什么这样判：老师原话 / 语境>",
+  "ev": "〔第 02 讲 · A-012 · P.007 · 12:30〕"
+ }
+];
+
+const LV = {"必考":"#fecaca","不考":"#e5e7eb","其余":"#bfdbfe"};
+const byId = Object.fromEntries(NODES.map(n=>[n.id,n]));
+const kids = {};
+NODES.forEach(n=>{ if(n.p){ (kids[n.p]=kids[n.p]||[]).push(n.id); } });
+const ROOTS = ["exam", ...NODES.filter(n=>!n.p && n.id!=="exam").map(n=>n.id)];
+const isRoot = id => !byId[id].p;
+const collapsed = new Set([...NODES.filter(n=>n.p==="root").map(n=>n.id), "exam"].filter(id=>byId[id]));
+const NW = 20, GAPX = 78, GAPY = 9, PADX = 16, PADY = 11, GAPR = 48;
+
+function textW(s){ let w=0; for(const ch of s){ w += /[\u4e00-\u9fa5]/.test(ch) ? 12.6 : 7.2; } return w; }
+function nodeW(n){
+  const line = Math.max(...n.t.split("\n").map(textW));
+  const meta = n.les ? textW(n.les)*0.76 : 0;
+  return PADX*2 + Math.max(line, meta);
+}
+function nodeH(n){ return PADY*2 + n.t.split("\n").length*17 + 12; }
+
+const H = {}; NODES.forEach(n=>H[n.id]=nodeH(n));
+const W = {}; NODES.forEach(n=>W[n.id]=nodeW(n));
+
+function layout(){
+  let y = 0; const pos = {};
+  function walk(id){
+    const n = byId[id];
+    const vis = collapsed.has(id) ? [] : (kids[id]||[]);
+    const h = H[id];
+    if(vis.length === 0){ pos[id] = {x:0, y:y}; y += h + GAPY; return pos[id].y + h/2; }
+    const centers = vis.map(c=>walk(c));
+    const cy = (centers[0] + centers[centers.length-1]) / 2;
+    pos[id] = {x:0, y: cy - h/2};
+    return cy;
+  }
+  ROOTS.forEach((r, i) => { if(i) y += GAPR; walk(r); });
+  const depth = {};
+  ROOTS.forEach(r => {
+    (function d(id, k){ depth[id]=k; if(!collapsed.has(id)) (kids[id]||[]).forEach(c=>d(c,k+1)); })(r, 0);
+  });
+  const colX = [0];
+  const maxW = {};
+  NODES.forEach(n=>{ maxW[depth[n.id]] = Math.max(maxW[depth[n.id]]||0, W[n.id]); });
+  for(let k=1;k<8;k++){ colX[k] = colX[k-1] + (maxW[k-1]||0) + GAPX; }
+  Object.keys(pos).forEach(id=>{ pos[id].x = colX[depth[id]]; });
+  return {pos, depth};
+}
+
+const vp = document.getElementById("vp");
+const stage = document.getElementById("stage");
+const detail = document.getElementById("detail");
+const NS = "http://www.w3.org/2000/svg";
+let view = {x:0,y:0,k:1};
+let box = {w:1200,h:800};
+
+function el(tag, attrs){ const e = document.createElementNS(NS, tag); for(const k in attrs) e.setAttribute(k, attrs[k]); return e; }
+
+function render(){
+  while(vp.firstChild) vp.removeChild(vp.firstChild);
+  const {pos, depth} = layout();
+  let bx = 0, by = 0;
+  Object.keys(pos).forEach(id=>{ bx = Math.max(bx, pos[id].x + W[id]); by = Math.max(by, pos[id].y + H[id]); });
+  box = {w:bx, h:by};
+
+  const gLink = el("g",{}); const gNode = el("g",{});
+  vp.appendChild(gLink); vp.appendChild(gNode);
+
+  NODES.forEach(n=>{
+    if(!n.p || collapsed.has(n.p)) return;
+    if(!(n.id in pos) || !(n.p in pos)) return;
+    const a = pos[n.p], b = pos[n.id];
+    gLink.appendChild(el("path",{class:"link",
+      d:`M${a.x+W[n.p]},${a.y+H[n.p]/2} C${(a.x+W[n.p]+b.x)/2},${a.y+H[n.p]/2} ${(a.x+W[n.p]+b.x)/2},${b.y+H[n.id]/2} ${b.x},${b.y+H[n.id]/2}`}));
+  });
+
+  NODES.forEach(n=>{
+    if(!(n.id in pos)) return;
+    const p = pos[n.id];
+    const g = el("g",{class:"node-g","data-id":n.id, transform:`translate(${p.x},${p.y})`});
+    const lv = n.lvl || "其余";
+    g.appendChild(el("rect",{class:"node-rect", x:0, y:0, width:W[n.id], height:H[n.id], rx:8,
+      fill: isRoot(n.id) ? "#2563eb" : LV[lv],
+      stroke: isRoot(n.id) ? "#1d4ed8" : (lv==="不考" ? "#9ca3af" : "rgba(0,0,0,.10)"),
+      "stroke-dasharray": lv==="不考" ? "4 3" : ""}));
+    const lines = n.t.split("\n");
+    const hasKids = (kids[n.id]||[]).length > 0;
+    if(hasKids){
+      g.appendChild(el("text",{x:W[n.id]-12, y:12, "text-anchor":"middle", "font-size":11,
+        fill: isRoot(n.id) ? "#dbeafe" : "#6b7280"})).textContent = collapsed.has(n.id) ? "＋" : "－";
+    }
+    lines.forEach((ln,i)=>{
+      const tx = el("text",{class:"node-text"+(isRoot(n.id)?" root":(depth[n.id]===1?" chap":"")),
+        x:PADX, y:PADY+13+i*17});
+      tx.textContent = ln;
+      if(isRoot(n.id)) tx.setAttribute("fill","#fff");
+      g.appendChild(tx);
+    });
+    g.appendChild(el("text",{class:"node-meta", x:PADX, y:H[n.id]-7})).textContent = n.les || "";
+    gNode.appendChild(g);
+  });
+
+  applyView();
+}
+
+function applyView(){ vp.setAttribute("transform", `translate(${view.x},${view.y}) scale(${view.k})`); }
+function fit(){
+  const r = stage.getBoundingClientRect();
+  const k = Math.max(0.3, Math.min(1, (r.width-96)/Math.max(box.w,1), (r.height-72)/Math.max(box.h,1)));
+  view = {x:36, y:28, k}; applyView();
+}
+function ensureFit(){
+  const r = stage.getBoundingClientRect();
+  if(box.w*view.k > r.width-64 || box.h*view.k > r.height-56) fit();
+}
+
+function showDetail(n){
+  const pts = (n.pts||[]).map(p=>`<div class="full">${p}</div>`).join("");
+  const tag = n.raw ? `<span class="tag ${n.lvl}">${n.raw}</span>` : "";
+  detail.innerHTML = `<h2>${n.t.replace(/\n/g," ")}</h2>
+    ${tag}
+    ${n.les ? `<span class="tag lesson">${n.les}</span>` : ""}
+    ${pts}
+    ${n.why ? `<div class="why">${n.why}</div>` : ""}
+    ${n.ev ? `<div class="ev">${n.ev}</div>` : ""}`;
+}
+
+let mode = "all", q = "";
+function hay(n){ return ((n.t||"")+(n.pts||[]).join(" ")+(n.why||"")+(n.ev||"")+((n.raw)||"")).toLowerCase(); }
+
+vp.addEventListener("click", e=>{
+  const g = e.target.closest(".node-g"); if(!g) return;
+  const id = g.dataset.id, n = byId[id];
+  if((kids[id]||[]).length){ collapsed.has(id) ? collapsed.delete(id) : collapsed.add(id); render(); ensureFit(); }
+  showDetail(n);
+});
+
+let drag = null;
+stage.addEventListener("mousedown", e=>{
+  if(e.target.closest(".node-g")) return;
+  drag = {x:e.clientX, y:e.clientY, vx:view.x, vy:view.y};
+  stage.classList.add("dragging");
+});
+window.addEventListener("mousemove", e=>{
+  if(!drag) return;
+  view.x = drag.vx + (e.clientX - drag.x);
+  view.y = drag.vy + (e.clientY - drag.y);
+  applyView();
+});
+window.addEventListener("mouseup", ()=>{ drag = null; stage.classList.remove("dragging"); });
+stage.addEventListener("wheel", e=>{
+  e.preventDefault();
+  const r = stage.getBoundingClientRect();
+  const mx = e.clientX - r.left, my = e.clientY - r.top;
+  const k2 = Math.max(0.25, Math.min(2.2, view.k * (e.deltaY < 0 ? 1.1 : 0.9)));
+  view.x = mx - (mx - view.x) * (k2/view.k);
+  view.y = my - (my - view.y) * (k2/view.k);
+  view.k = k2; applyView();
+}, {passive:false});
+
+document.getElementById("q").addEventListener("input", e=>{
+  q = e.target.value.trim().toLowerCase();
+  let first = null;
+  vp.querySelectorAll(".node-g").forEach(g=>{
+    const hit = !!q && hay(byId[g.dataset.id]).includes(q);
+    g.classList.toggle("hit", hit);
+    g.classList.toggle("dim", !!q && !hit);
+    if(hit && !first) first = g;
+  });
+  if(first){
+    const id = first.dataset.id;
+    const m = /translate\(([-\d.]+),([-\d.]+)\)/.exec(first.getAttribute("transform"));
+    if(m){
+      const r = stage.getBoundingClientRect();
+      view.x = r.width/2 - (parseFloat(m[1]) + W[id]/2) * view.k;
+      view.y = r.height/2 - (parseFloat(m[2]) + H[id]/2) * view.k;
+      applyView();
+    }
+  }
+});
+
+document.getElementById("only").addEventListener("click", e=>{
+  mode = mode === "only" ? "all" : "only";
+  e.target.classList.toggle("on", mode === "only");
+  vp.querySelectorAll(".node-g").forEach(g=>{
+    const n = byId[g.dataset.id];
+    const leaf = !(kids[g.dataset.id]||[]).length;
+    g.classList.toggle("dim", mode === "only" && leaf && n.lvl !== "必考");
+  });
+});
+document.getElementById("expand").addEventListener("click", ()=>{
+  collapsed.clear();
+  NODES.filter(n=>n.p && n.p!=="root" && n.p!=="exam").forEach(n=>collapsed.add(n.id));
+  render(); fit();
+});
+document.getElementById("reset").addEventListener("click", ()=>{
+  collapsed.clear();
+  NODES.filter(n=>n.p==="root").forEach(n=>collapsed.add(n.id));
+  collapsed.add("exam");
+  render(); fit();
+});
+
+render(); fit();
+</script>
+</body>
+</html>

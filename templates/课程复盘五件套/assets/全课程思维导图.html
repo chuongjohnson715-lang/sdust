@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{课程名}} · 全课程知识脑图</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --bg:#f7f8fa; --panel:#fff; --line:#e5e7eb; --text:#1f2937; --text2:#6b7280;
+    --blue:#2563eb; --blue-bg:#eff6ff;
+    --red:#b91c1c; --red-bg:#fef2f2;
+    --amber:#b45309; --amber-bg:#fffbeb;
+    --green:#047857; --green-bg:#ecfdf5;
+  }
+  html,body{height:100%}
+  body{
+    font-family:-apple-system,"Segoe UI","Microsoft YaHei","PingFang SC",sans-serif;
+    background:var(--bg);color:var(--text);font-size:14px;line-height:1.6;overflow:hidden;
+  }
+  header{
+    height:54px;background:var(--panel);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;padding:0 16px;position:relative;z-index:5;
+  }
+  header h1{font-size:14.5px;font-weight:600;white-space:nowrap}
+  header .sub{font-size:12px;color:var(--text2);white-space:nowrap}
+  .grow{flex:1}
+  button{
+    font:inherit;font-size:12.5px;padding:5px 11px;border:1px solid var(--line);
+    background:#fff;border-radius:6px;cursor:pointer;color:var(--text);white-space:nowrap;
+  }
+  button:hover{background:#f3f4f6}
+  button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+  button.primary:hover{background:#1d4ed8}
+  input[type=search]{
+    font:inherit;font-size:12.5px;padding:5px 10px;border:1px solid var(--line);
+    border-radius:6px;width:150px;outline:none;
+  }
+  input[type=search]:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(37,99,235,.1)}
+  .legend{display:flex;gap:10px;font-size:12px;color:var(--text2)}
+  .legend span{display:flex;align-items:center;gap:4px;white-space:nowrap}
+  .dot{width:9px;height:9px;border-radius:2px;display:inline-block}
+
+  main{display:flex;height:calc(100% - 54px)}
+  #stage{flex:1;position:relative;overflow:hidden;cursor:grab}
+  #stage.dragging{cursor:grabbing}
+  svg{display:block;width:100%;height:100%}
+  .node-rect{stroke-width:1.2;transition:filter .12s}
+  .node-g{cursor:pointer}
+  .node-g:hover .node-rect{filter:drop-shadow(0 2px 6px rgba(0,0,0,.14))}
+  .node-text{font-size:12.5px;fill:#1f2937;pointer-events:none;user-select:none}
+  .node-text.root{fill:#fff;font-weight:600}
+  .badge-count{font-size:10px;fill:#6b7280;pointer-events:none;user-select:none}
+  .link{fill:none;stroke:#cbd5e1;stroke-width:1.4}
+  .link.hot{stroke:#93c5fd;stroke-width:2}
+  .hit{stroke:#f59e0b;stroke-width:2.5}
+
+  #detail{
+    width:352px;flex:0 0 352px;background:var(--panel);border-left:1px solid var(--line);
+    overflow:auto;padding:20px 20px 40px;
+  }
+  #detail h2{font-size:15.5px;font-weight:600;margin-bottom:3px}
+  #detail .path{font-size:11.5px;color:var(--text2);margin-bottom:12px;word-break:break-all}
+  #detail h3{font-size:11px;font-weight:600;color:var(--text2);letter-spacing:.6px;margin:16px 0 6px}
+  #detail p{font-size:13px;margin-bottom:8px;color:#374151}
+  #detail ul{padding-left:17px;margin-bottom:6px}
+  #detail li{font-size:13px;margin-bottom:5px;color:#374151}
+  .ev{
+    display:inline-block;font-size:11px;background:#f3f4f6;color:#374151;
+    border:1px solid var(--line);border-radius:4px;padding:1px 5px;margin:2px 4px 2px 0;
+    font-family:ui-monospace,Consolas,monospace;
+  }
+  .hint{font-size:11.5px;color:var(--text2);margin-top:16px;padding-top:12px;border-top:1px dashed var(--line)}
+  .tag{
+    display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;
+    margin-left:6px;vertical-align:1px;font-weight:500;
+  }
+  .tag.r{background:var(--red-bg);color:var(--red)}
+  .tag.a{background:var(--amber-bg);color:var(--amber)}
+  .tag.b{background:var(--blue-bg);color:var(--blue)}
+  .tag.g{background:var(--green-bg);color:var(--green)}
+  .empty{color:var(--text2);font-size:13px}
+  .zoombar{
+    position:absolute;left:14px;bottom:14px;display:flex;gap:6px;align-items:center;
+    background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:8px;padding:5px 8px;
+    font-size:12px;color:var(--text2);
+  }
+  .zoombar button{padding:2px 8px;font-size:12px}
+  @media (max-width:900px){
+    main{flex-direction:column}
+    #detail{width:100%;flex:0 0 44%;border-left:none;border-top:1px solid var(--line)}
+    header .legend{display:none}
+    input[type=search]{width:110px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>{{课程名}} · 全课程知识脑图</h1>
+  <span class="sub">{{讲次数}} 讲 · {{证据条数}} 条证据</span>
+  <div class="grow"></div>
+  <input type="search" id="q" placeholder="搜索知识点…">
+  <button id="btn-expand">展开全部</button>
+  <button id="btn-collapse">收到二级</button>
+  <button id="btn-fit" class="primary">适应窗口</button>
+  <div class="legend">
+    <span><i class="dot" style="background:#b91c1c"></i>必考</span>
+    <span><i class="dot" style="background:#b45309"></i>重点</span>
+    <span><i class="dot" style="background:#2563eb"></i>常规</span>
+    <span><i class="dot" style="background:#047857"></i>了解</span>
+  </div>
+</header>
+
+<main>
+  <div id="stage">
+    <svg id="svg">
+      <g id="viewport">
+        <g id="links"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+    <div class="zoombar">
+      <button id="z-out">−</button>
+      <span id="z-val">100%</span>
+      <button id="z-in">+</button>
+      <span style="margin-left:6px;color:#9ca3af">拖动平移 · 滚轮缩放 · 点节点折叠</span>
+    </div>
+  </div>
+  <div id="detail"><p class="empty">← 点击左侧任意节点，这里显示要点与证据出处</p></div>
+</main>
+
+<script>
+/* ---------- 数据 ---------- */
+const DATA = {
+  id:"root", title:"{{课程名}}", tag:"", meta:"{{讲次数}} 讲 · {{证据条数}} 条证据",
+  note:"{{教材}}。主线：{{主线，用 → 连接，例：概念 → 部署 → 建表 → 写入 → 查询 → 项目}}。",
+  points:[
+    "{{课程核心认知：把一门课压成一句话，说清它到底在解决什么问题。}}",
+    "{{最容易建立的错误直觉 + 纠正，一句话。}}",
+    "{{考试/应用层面最重要的一条，一句话。}}"
+  ],
+  evidence:[],
+  children:[
+
+    /* 章节节点：tag 决定颜色 r=必考 a=重点 b=常规 g=了解 ""=无色；children 为空即为叶子 */
+    { id:"c1", title:"1. {{章标题}}", tag:"", meta:"{{讲 01–0N}}",
+      note:"{{本章主线一句话}}",
+      points:["{{要点 1}}", "{{要点 2}}"],
+      evidence:["{{编号 · 证据页}}"],
+      children:[
+        { id:"c1-1", title:"{{小节标题}}", tag:"r", meta:"{{x.y · 源页码}}",
+          note:"{{这一小节考什么，一句话}}",
+          points:["{{可背的要点}}"],
+          evidence:["{{编号 · 证据页}}"], children:[] }
+      ]},
+
+    { id:"c2", title:"2. {{章标题}}", tag:"a", meta:"{{讲 0N–0M}}",
+      note:"{{本章主线一句话}}",
+      points:["{{要点}}"],
+      evidence:["{{编号 · 证据页}}"], children:[] }
+  ]
+};
+
+/* ---------- 常量 ---------- */
+const ROW = 30, GAP_X = 46, PAD_TXT = 12;
+const FILL = {
+  root:{f:"#334155", s:"#334155", t:"#ffffff"},
+  "":{f:"#ffffff", s:"#cbd5e1", t:"#1f2937"},
+  r:{f:"#fef2f2", s:"#fca5a5", t:"#b91c1c"},
+  a:{f:"#fffbeb", s:"#fcd34d", t:"#b45309"},
+  b:{f:"#eff6ff", s:"#93c5fd", t:"#1d4ed8"},
+  g:{f:"#ecfdf5", s:"#6ee7b7", t:"#047857"}
+};
+const TAGNAME = {r:"必考", a:"重点", b:"常规", g:"了解"};
+
+/* ---------- 状态 ---------- */
+const collapsed = new Set();
+let selectedId = null, keyword = "", nodes = [], links = [];
+let tx = 0, ty = 0, k = 1;
+
+/* ---------- 布局 ---------- */
+function visibleKids(n){ return collapsed.has(n.id) ? [] : (n.children || []); }
+
+function computeLayout(){
+  nodes = []; links = [];
+  let cursor = 0;
+  (function walk(node, depth, parent){
+    node._depth = depth; node._parent = parent;
+    const kids = visibleKids(node);
+    node._w = depth === 0
+      ? Math.max(150, node.title.length * 14 + 36)
+      : Math.max(104, Math.min(238, node.title.length * 13.2 + 30));
+    node._x = parent ? parent._x + parent._w + GAP_X : 0;
+    if(!kids.length){
+      node._y = cursor + ROW / 2;
+      cursor += ROW;
+    } else {
+      kids.forEach(c => walk(c, depth + 1, node));
+      node._y = (kids[0]._y + kids[kids.length - 1]._y) / 2;
+    }
+    nodes.push(node);
+    if(parent) links.push({p:parent, c:node});
+  })(DATA, 0, null);
+  return {h: Math.max(cursor, ROW)};
+}
+
+/* ---------- 渲染 ---------- */
+const svg = document.getElementById("svg");
+const vp = document.getElementById("viewport");
+const gLinks = document.getElementById("links");
+const gNodes = document.getElementById("nodes");
+const NS = "http://www.w3.org/2000/svg";
+
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const key in attrs) e.setAttribute(key, attrs[key]);
+  return e;
+}
+
+function render(){
+  computeLayout();
+  gLinks.innerHTML = "";
+  gNodes.innerHTML = "";
+
+  links.forEach(l => {
+    const x1 = l.p._x + l.p._w, y1 = l.p._y;
+    const x2 = l.c._x, y2 = l.c._y;
+    const mx = (x1 + x2) / 2;
+    const path = el("path", {
+      d: "M" + x1 + "," + y1 + " C" + mx + "," + y1 + " " + mx + "," + y2 + " " + x2 + "," + y2,
+      "class": "link" + (selectedId && (l.c.id === selectedId || l.p.id === selectedId) ? " hot" : "")
+    });
+    gLinks.appendChild(path);
+  });
+
+  nodes.forEach(n => {
+    const g = el("g", {"class":"node-g", "data-id":n.id});
+    const scheme = n.id === "root" ? FILL.root : (FILL[n.tag] || FILL[""]);
+    const hgt = n.id === "root" ? 34 : 28;
+    const rect = el("rect", {
+      x:n._x, y:n._y - hgt/2, width:n._w, height:hgt, rx:7,
+      fill:scheme.f, stroke:scheme.s, "class":"node-rect"
+    });
+    if(n.id === selectedId) rect.setAttribute("stroke-width", 2.6);
+    if(keyword && n.title.indexOf(keyword) >= 0) rect.classList.add("hit");
+    g.appendChild(rect);
+
+    const maxChars = Math.floor((n._w - PAD_TXT * 2) / 13.2);
+    let label = n.title;
+    if(label.length > maxChars) label = label.slice(0, Math.max(2, maxChars - 1)) + "…";
+    const t = el("text", {
+      x:n._x + PAD_TXT, y:n._y + 4.5,
+      "class":"node-text" + (n.id === "root" ? " root" : "")
+    });
+    t.textContent = label;
+    g.appendChild(t);
+
+    const kids = n.children || [];
+    if(kids.length && collapsed.has(n.id)){
+      const bx = n._x + n._w + 4;
+      g.appendChild(el("circle", {cx:bx + 9, cy:n._y, r:9, fill:"#fff", stroke:scheme.s}));
+      const bt = el("text", {x:bx + 9, y:n._y + 3.5, "text-anchor":"middle", "class":"badge-count"});
+      bt.textContent = kids.length;
+      g.appendChild(bt);
+    }
+
+    g.addEventListener("click", ev => {
+      ev.stopPropagation();
+      if((n.children || []).length){
+        if(collapsed.has(n.id)) collapsed.delete(n.id); else collapsed.add(n.id);
+      }
+      select(n);
+    });
+    gNodes.appendChild(g);
+  });
+
+  applyTransform();
+}
+
+/* ---------- 详情面板 ---------- */
+function pathOf(n){
+  const arr = [];
+  let cur = n;
+  while(cur){ arr.unshift(cur.title); cur = cur._parent; }
+  return arr.join(" / ");
+}
+
+function select(n){
+  selectedId = n.id;
+  const evs = (n.evidence || []).map(e => '<span class="ev">' + e + '</span>').join("");
+  const pts = (n.points || []).map(p => '<li>' + p + '</li>').join("");
+  const tag = n.tag ? '<span class="tag ' + n.tag + '">' + TAGNAME[n.tag] + '</span>' : "";
+  document.getElementById("detail").innerHTML =
+    '<h2>' + n.title + tag + '</h2>' +
+    '<div class="path">' + pathOf(n) + '</div>' +
+    (n.note ? '<p>' + n.note + '</p>' : "") +
+    (pts ? '<h3>要点</h3><ul>' + pts + '</ul>' : "") +
+    (evs ? '<h3>证据出处</h3><div>' + evs + '</div>' : "") +
+    '<div class="hint">核验路径：证据编号 → 04_证据文件夹/00_证据索引.md → 分册「证据页 P.xxx」→ 对照源文件页码。</div>';
+  render();
+}
+
+/* ---------- 视图变换 ---------- */
+function applyTransform(){
+  vp.setAttribute("transform", "translate(" + tx + "," + ty + ") scale(" + k + ")");
+  document.getElementById("z-val").textContent = Math.round(k * 100) + "%";
+}
+
+function fit(){
+  let box;
+  try { box = vp.getBBox(); } catch(e) { return; }
+  const W = svg.clientWidth, H = svg.clientHeight;
+  if(!box.width || !box.height) return;
+  const pad = 40;
+  k = Math.min((W - pad * 2) / box.width, (H - pad * 2) / box.height, 1.15);
+  tx = pad - box.x * k;
+  ty = (H - box.height * k) / 2 - box.y * k;
+  applyTransform();
+}
+
+/* ---------- 交互 ---------- */
+const stage = document.getElementById("stage");
+let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+
+stage.addEventListener("mousedown", e => {
+  dragging = true;
+  sx = e.clientX; sy = e.clientY; ox = tx; oy = ty;
+  stage.classList.add("dragging");
+});
+window.addEventListener("mousemove", e => {
+  if(!dragging) return;
+  tx = ox + (e.clientX - sx);
+  ty = oy + (e.clientY - sy);
+  applyTransform();
+});
+window.addEventListener("mouseup", () => { dragging = false; stage.classList.remove("dragging"); });
+
+stage.addEventListener("wheel", e => {
+  e.preventDefault();
+  const rect = stage.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  const nk = Math.min(2.2, Math.max(0.25, k * (e.deltaY < 0 ? 1.12 : 1 / 1.12)));
+  tx = mx - (mx - tx) * (nk / k);
+  ty = my - (my - ty) * (nk / k);
+  k = nk;
+  applyTransform();
+}, {passive:false});
+
+document.getElementById("z-in").onclick = () => { k = Math.min(2.2, k * 1.15); applyTransform(); };
+document.getElementById("z-out").onclick = () => { k = Math.max(0.25, k / 1.15); applyTransform(); };
+document.getElementById("btn-fit").onclick = () => fit();
+
+document.getElementById("btn-expand").onclick = () => {
+  collapsed.clear(); render(); setTimeout(fit, 10);
+};
+document.getElementById("btn-collapse").onclick = () => {
+  collapsed.clear();
+  (DATA.children || []).forEach(c => { if((c.children || []).length) collapsed.add(c.id); });
+  render(); setTimeout(fit, 10);
+};
+
+document.getElementById("q").addEventListener("input", e => {
+  keyword = e.target.value.trim();
+  if(keyword) collapsed.clear();
+  render();
+  if(keyword){
+    const hit = nodes.find(n => n.title.indexOf(keyword) >= 0);
+    if(hit) select(hit);
+  }
+});
+
+/* ---------- 启动 ---------- */
+render();
+setTimeout(fit, 30);
+window.addEventListener("resize", () => applyTransform());
+</script>
+</body>
+</html>
